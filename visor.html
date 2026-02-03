@@ -2,66 +2,32 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Visor de Reportes – DRELM</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { margin: 0; font-family: Arial, sans-serif; }
-    header {
-      background: #003366;
-      color: white;
-      padding: 10px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    header{
+      background:#003366;color:#fff;padding:10px 16px;
+      display:flex;justify-content:space-between;align-items:center;
+      height:44px; box-sizing:border-box;
     }
-    header a { color: #fff; text-decoration: none; font-size: 13px; }
-    .layout {
-      display: grid;
-      grid-template-columns: 360px 1fr;
-      height: calc(100vh - 44px);
+    header a{color:#fff;text-decoration:none;font-size:13px;}
+    .layout{display:grid;grid-template-columns:340px 1fr;height:calc(100vh - 44px);}
+    aside{background:#f4f6f8;border-right:1px solid #ccc;padding:12px;overflow:auto;}
+    input{
+      width:100%;padding:10px;border-radius:8px;border:1px solid #bbb;margin-bottom:12px;
+      box-sizing:border-box;
     }
-    aside {
-      background: #f4f6f8;
-      border-right: 1px solid #ccc;
-      padding: 12px;
-      overflow: auto;
+    details{background:#fff;border-radius:10px;border:1px solid #ddd;margin-bottom:10px;}
+    summary{padding:10px;font-weight:bold;cursor:pointer;user-select:none;}
+    .grp{padding:0 10px 10px;}
+    button{
+      width:100%;text-align:left;padding:10px;margin:6px 0;border:1px solid #ddd;
+      background:#fff;border-radius:8px;cursor:pointer;
     }
-    input {
-      width: 100%;
-      padding: 10px;
-      border-radius: 10px;
-      border: 1px solid #bbb;
-      margin-bottom: 12px;
-      box-sizing: border-box;
-    }
-    details {
-      background: white;
-      border-radius: 12px;
-      border: 1px solid #ddd;
-      margin-bottom: 10px;
-      overflow: hidden;
-    }
-    summary {
-      padding: 12px 12px;
-      font-weight: bold;
-      cursor: pointer;
-      background: #eef3f7;
-    }
-    .group {
-      padding: 10px 10px 12px 10px;
-    }
-    button {
-      width: 100%;
-      text-align: left;
-      padding: 10px;
-      margin: 6px 0;
-      border: 1px solid #ddd;
-      background: white;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-    button:hover { background: #e6f0ff; }
-    iframe { width: 100%; height: 100%; border: none; }
+    button:hover{background:#e6f0ff;}
+    iframe{width:100%;height:100%;border:none;}
+    .muted{font-size:12px;color:#666;padding:8px 2px;}
   </style>
 </head>
 <body>
@@ -77,53 +43,64 @@
 
     <details open>
       <summary>📊 Evaluaciones</summary>
-      <div class="group">
-        <button onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_1')">Evaluación Censal</button>
-        <button onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_2')">Evaluación Diagnóstica y de Salida</button>
+      <div class="grp">
+        <button data-title="Evaluación Censal" data-url="https://app.powerbi.com/view?r=PEGA_AQUI_1">Evaluación Censal</button>
+        <button data-title="Evaluación Diagnóstica y de Salida" data-url="https://app.powerbi.com/view?r=PEGA_AQUI_2">Evaluación Diagnóstica y de Salida</button>
       </div>
     </details>
 
     <details open>
       <summary>📈 Estadísticas</summary>
-      <div class="group">
-        <button onclick="cargar('https://app.powerbi.com/view?r=eyJrIjoiNWE2NDRkZGQtODZlYy00NjZmLWFiODktZDg4NmVkYjQwOTE2IiwidCI6ImY5MzgyMjM0LWI1NDMtNDJiYi05MzJkLTYxNjI5ODY1OGVmOCIsImMiOjR9')">Padrón de IIEE</button>
-        <button onclick="cargar('https://app.powerbi.com/view?r=eyJrIjoiNGIwNmRmODUtZWQwMS00MmU3LTllZjEtMTZkMmM1OWY0ZjNiIiwidCI6ImY5MzgyMjM0LWI1NDMtNDJiYi05MzJkLTYxNjI5ODY1OGVmOCIsImMiOjR9')">Redes Educativas</button>
+      <div class="grp">
+        <button data-title="Padrón de IIEE" data-url="https://app.powerbi.com/view?r=eyJrIjoiNWE2NDRkZGQtODZlYy00NjZmLWFiODktZDg4NmVkYjQwOTE2IiwidCI6ImY5MzgyMjM0LWI1NDMtNDJiYi05MzJkLTYxNjI5ODY1OGVmOCIsImMiOjR9">Padrón de IIEE</button>
+        <button data-title="Redes Educativas" data-url="https://app.powerbi.com/view?r=eyJrIjoiNGIwNmRmODUtZWQwMS00MmU3LTllZjEtMTZkMmM1OWY0ZjNiIiwidCI6ImY5MzgyMjM0LWI1NDMtNDJiYi05MzJkLTYxNjI5ODY1OGVmOCIsImMiOjR9">Redes Educativas</button>
       </div>
     </details>
 
     <details>
       <summary>🏫 Programas</summary>
-      <div class="group">
-        <button onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_5')">PP 0150 – Acceso</button>
-        <button onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_6')">PP 0051 – Prevención</button>
+      <div class="grp">
+        <button data-title="PP 0150 – Acceso" data-url="https://app.powerbi.com/view?r=PEGA_AQUI_5">PP 0150 – Acceso</button>
+        <button data-title="PP 0051 – Prevención" data-url="https://app.powerbi.com/view?r=PEGA_AQUI_6">PP 0051 – Prevención</button>
       </div>
     </details>
 
     <details open>
       <summary>🗺️ Mapas</summary>
-      <div class="group">
-        <button onclick="cargar('mapa_iiee_lm.html')">Mapa de Instituciones Educativas – Lima Metropolitana</button>
+      <div class="grp">
+        <button data-title="Mapa de Instituciones Educativas – Lima Metropolitana" data-url="mapa_iiee_lm.html">
+          Mapa de Instituciones Educativas – Lima Metropolitana
+        </button>
+        <div class="muted">* Si no carga al instante, refresca (Ctrl+F5) porque GitHub Pages demora en actualizar.</div>
       </div>
     </details>
-
   </aside>
 
   <main>
-    <iframe id="visor"></iframe>
+    <iframe id="visor" src=""></iframe>
   </main>
 </div>
 
 <script>
-  function cargar(url) {
-    document.getElementById("visor").src = url;
-  }
+  const iframe = document.getElementById("visor");
+  const buscador = document.getElementById("buscar");
+  const botones = Array.from(document.querySelectorAll("button[data-url]"));
+
+  function cargar(url){ iframe.src = url; }
+
+  botones.forEach(b => b.addEventListener("click", () => cargar(b.dataset.url)));
+
+  buscador.addEventListener("input", () => {
+    const q = buscador.value.toLowerCase().trim();
+    botones.forEach(b => {
+      const txt = (b.dataset.title || b.textContent).toLowerCase();
+      b.style.display = txt.includes(q) ? "" : "none";
+    });
+  });
+
+  // Carga por defecto el mapa (opcional)
+  // cargar("mapa_iiee_lm.html");
 </script>
 
 </body>
 </html>
-
-
-
-
-
-
