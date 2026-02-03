@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Visor de Reportes – DRELM</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body { margin: 0; font-family: Arial, sans-serif; }
     header {
@@ -13,14 +14,10 @@
       justify-content: space-between;
       align-items: center;
     }
-    header a {
-      color: #fff;
-      text-decoration: none;
-      font-size: 13px;
-    }
+    header a { color: #fff; text-decoration: none; font-size: 13px; }
     .layout {
       display: grid;
-      grid-template-columns: 340px 1fr;
+      grid-template-columns: 360px 1fr;
       height: calc(100vh - 44px);
     }
     aside {
@@ -32,24 +29,26 @@
     input {
       width: 100%;
       padding: 10px;
-      border-radius: 8px;
+      border-radius: 10px;
       border: 1px solid #bbb;
       margin-bottom: 12px;
       box-sizing: border-box;
     }
     details {
       background: white;
-      border-radius: 10px;
+      border-radius: 12px;
       border: 1px solid #ddd;
       margin-bottom: 10px;
       overflow: hidden;
     }
     summary {
-      padding: 10px;
+      padding: 12px 12px;
       font-weight: bold;
       cursor: pointer;
-      user-select: none;
-      background: #eef2f7;
+      background: #eef3f7;
+    }
+    .group {
+      padding: 10px 10px 12px 10px;
     }
     button {
       width: 100%;
@@ -58,17 +57,11 @@
       margin: 6px 0;
       border: 1px solid #ddd;
       background: white;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
     }
-    button:hover {
-      background: #e6f0ff;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
+    button:hover { background: #e6f0ff; }
+    iframe { width: 100%; height: 100%; border: none; }
   </style>
 </head>
 <body>
@@ -84,39 +77,33 @@
 
     <details open>
       <summary>📊 Evaluaciones</summary>
-      <button data-title="evaluación censal" onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_1')">
-        Evaluación Censal
-      </button>
-      <button data-title="evaluación diagnóstica salida" onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_2')">
-        Evaluación Diagnóstica y de Salida
-      </button>
+      <div class="group">
+        <button onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_1')">Evaluación Censal</button>
+        <button onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_2')">Evaluación Diagnóstica y de Salida</button>
+      </div>
     </details>
 
     <details open>
       <summary>📈 Estadísticas</summary>
-      <button data-title="padron iiee padrón instituciones educativas" onclick="cargar('https://app.powerbi.com/view?r=eyJrIjoiNWE2NDRkZGQtODZlYy00NjZmLWFiODktZDg4NmVkYjQwOTE2IiwidCI6ImY5MzgyMjM0LWI1NDMtNDJiYi05MzJkLTYxNjI5ODY1OGVmOCIsImMiOjR9')">
-        Padrón de IIEE
-      </button>
-      <button data-title="redes educativas" onclick="cargar('https://app.powerbi.com/view?r=eyJrIjoiNGIwNmRmODUtZWQwMS00MmU3LTllZjEtMTZkMmM1OWY0ZjNiIiwidCI6ImY5MzgyMjM0LWI1NDMtNDJiYi05MzJkLTYxNjI5ODY1OGVmOCIsImMiOjR9')">
-        Redes Educativas
-      </button>
+      <div class="group">
+        <button onclick="cargar('https://app.powerbi.com/view?r=eyJrIjoiNWE2NDRkZGQtODZlYy00NjZmLWFiODktZDg4NmVkYjQwOTE2IiwidCI6ImY5MzgyMjM0LWI1NDMtNDJiYi05MzJkLTYxNjI5ODY1OGVmOCIsImMiOjR9')">Padrón de IIEE</button>
+        <button onclick="cargar('https://app.powerbi.com/view?r=eyJrIjoiNGIwNmRmODUtZWQwMS00MmU3LTllZjEtMTZkMmM1OWY0ZjNiIiwidCI6ImY5MzgyMjM0LWI1NDMtNDJiYi05MzJkLTYxNjI5ODY1OGVmOCIsImMiOjR9')">Redes Educativas</button>
+      </div>
     </details>
 
-    <details open>
+    <details>
       <summary>🏫 Programas</summary>
-      <button data-title="pp 0150 acceso" onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_5')">
-        PP 0150 – Acceso
-      </button>
-      <button data-title="pp 0051 prevención" onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_6')">
-        PP 0051 – Prevención
-      </button>
+      <div class="group">
+        <button onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_5')">PP 0150 – Acceso</button>
+        <button onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_6')">PP 0051 – Prevención</button>
+      </div>
     </details>
 
     <details open>
       <summary>🗺️ Mapas</summary>
-      <button data-title="mapa instituciones educativas lima metropolitana iiee" onclick="cargar('mapa_iiee_lm.html')">
-        Mapa de Instituciones Educativas – Lima Metropolitana
-      </button>
+      <div class="group">
+        <button onclick="cargar('mapa_iiee_lm.html')">Mapa de Instituciones Educativas – Lima Metropolitana</button>
+      </div>
     </details>
 
   </aside>
@@ -130,21 +117,11 @@
   function cargar(url) {
     document.getElementById("visor").src = url;
   }
-
-  const inputBuscar = document.getElementById("buscar");
-  inputBuscar.addEventListener("input", () => {
-    const q = inputBuscar.value.toLowerCase().trim();
-    const botones = document.querySelectorAll("aside button");
-
-    botones.forEach(btn => {
-      const titulo = (btn.getAttribute("data-title") || btn.textContent).toLowerCase();
-      btn.style.display = (titulo.includes(q)) ? "" : "none";
-    });
-  });
 </script>
 
 </body>
 </html>
+
 
 
 
