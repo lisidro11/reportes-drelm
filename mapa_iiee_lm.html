@@ -1,93 +1,134 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
 <meta charset="utf-8" />
-<title>Mapa IIEE Lima Metropolitana</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<title>Mapa IIEE – Lima Metropolitana</title>
+<script src="https://cdn.jsdelivr.net/npm/deck.gl@8.9.27/dist.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@deck.gl/aggregation-layers@8.9.27/dist.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@deck.gl/layers@8.9.27/dist.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@deck.gl/core@8.9.27/dist.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
+
 <style>
-  body { margin:0; font-family:Arial; }
-  #map { height:100vh; }
-  .panel {
-    position:absolute; top:10px; left:10px;
-    background:white; padding:10px; border-radius:8px;
-    box-shadow:0 2px 6px rgba(0,0,0,.3); z-index:999;
-    width:260px;
-  }
-  select, input { width:100%; margin-bottom:6px; padding:6px; }
+body { margin:0; font-family: Arial, sans-serif; }
+#map { position:absolute; top:0; bottom:0; width:100%; }
+
+.panel {
+  position:absolute;
+  top:10px;
+  left:10px;
+  background:white;
+  padding:12px;
+  border-radius:12px;
+  box-shadow:0 4px 15px rgba(0,0,0,0.2);
+  width:260px;
+  z-index:10;
+}
+
+.panel h3 { margin:0 0 10px; font-size:16px; }
+.panel select, .panel input {
+  width:100%;
+  padding:6px;
+  margin-bottom:8px;
+  border-radius:6px;
+  border:1px solid #ccc;
+}
 </style>
 </head>
+
 <body>
-
-<div class="panel">
-  <input id="buscar" placeholder="Buscar IE..." />
-  <select id="fugel"><option value="">Todas las UGEL</option></select>
-  <select id="fdistrito"><option value="">Todos los distritos</option></select>
-  <select id="fmodalidad"><option value="">Todas las modalidades</option></select>
-</div>
-
 <div id="map"></div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<div class="panel">
+  <h3>Filtros IIEE</h3>
+  <input id="buscar" placeholder="Buscar IE..." />
+  <select id="ugel"></select>
+  <select id="distrito"></select>
+  <select id="modalidad"></select>
+</div>
+
 <script>
-let map = L.map('map').setView([-12.0464, -77.0428], 10);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+fetch("./iiee_lm.json")
+.then(res => res.json())
+.then(data => {
 
-let markers = [];
-let dataIE = [];
+  const ugelSel = document.getElementById("ugel");
+  const distSel = document.getElementById("distrito");
+  const modSel = document.getElementById("modalidad");
+  const buscar = document.getElementById("buscar");
 
-fetch("iiee_lm.json")
-  .then(r => r.json())
-  .then(data => {
-    dataIE = data;
-    cargarFiltros(data);
-    mostrar(data);
+  function llenar(select, campo) {
+    const valores = [...new Set(data.map(d => d[campo]))].sort();
+    select.innerHTML = `<option value="">Todos</option>`;
+    valores.forEach(v => select.innerHTML += `<option value="${v}">${v}</option>`);
+  }
+
+  llenar(ugelSel, "ugel");
+  llenar(distSel, "distrito");
+  llenar(modSel, "modalidad");
+
+  function filtrar() {
+    const ugel = ugelSel.value;
+    const dist = distSel.value;
+    const mod = modSel.value;
+    const texto = buscar.value.toLowerCase();
+
+    return data.filter(d =>
+      (!ugel || d.ugel === ugel) &&
+      (!dist || d.distrito === dist) &&
+      (!mod || d.modalidad === mod) &&
+      (!texto || d.nombre_ie.toLowerCase().includes(texto))
+    );
+  }
+
+  function actualizar() {
+    const puntos = filtrar();
+
+    const capa = new deck.ScatterplotLayer({
+      id: "iiee",
+      data: puntos,
+      getPosition: d => [d.longitud, d.latitud],
+      getRadius: 25,
+      getFillColor: [255, 140, 0],
+      pickable: true,
+      onClick: info => {
+        if (info.object) {
+          alert(
+            "IE: " + info.object.nombre_ie +
+            "\nUGEL: " + info.object.ugel +
+            "\nDistrito: " + info.object.distrito +
+            "\nModalidad: " + info.object.modalidad
+          );
+        }
+      }
+    });
+
+    deckgl.setProps({ layers: [capa] });
+  }
+
+  const deckgl = new deck.DeckGL({
+    container: "map",
+    mapStyle: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+    initialViewState: {
+      longitude: -77.04,
+      latitude: -12.05,
+      zoom: 10,
+      pitch: 0,
+      bearing: 0
+    },
+    controller: true,
+    layers: []
   });
 
-function cargarFiltros(data){
-  const u = [...new Set(data.map(d=>d.ugel))].sort();
-  const d = [...new Set(data.map(d=>d.distrito))].sort();
-  const m = [...new Set(data.map(d=>d.modalidad))].sort();
+  ugelSel.onchange = actualizar;
+  distSel.onchange = actualizar;
+  modSel.onchange = actualizar;
+  buscar.oninput = actualizar;
 
-  u.forEach(v=>fugel.innerHTML += `<option>${v}</option>`);
-  d.forEach(v=>fdistrito.innerHTML += `<option>${v}</option>`);
-  m.forEach(v=>fmodalidad.innerHTML += `<option>${v}</option>`);
-}
-
-function mostrar(data){
-  markers.forEach(m=>map.removeLayer(m));
-  markers = [];
-
-  data.forEach(d=>{
-    let marker = L.circleMarker([d.lat, d.lon], {
-      radius:4, fillColor:"#007bff", color:"#000", weight:1, fillOpacity:0.8
-    }).addTo(map);
-
-    marker.bindPopup(`<b>${d.ie}</b><br>UGEL: ${d.ugel}<br>Distrito: ${d.distrito}<br>Modalidad: ${d.modalidad}`);
-    markers.push(marker);
-  });
-}
-
-function filtrar(){
-  let t = buscar.value.toLowerCase();
-  let u = fugel.value;
-  let d = fdistrito.value;
-  let m = fmodalidad.value;
-
-  let f = dataIE.filter(x =>
-    x.ie.toLowerCase().includes(t) &&
-    (!u || x.ugel===u) &&
-    (!d || x.distrito===d) &&
-    (!m || x.modalidad===m)
-  );
-  mostrar(f);
-}
-
-buscar.oninput = filtrar;
-fugel.onchange = filtrar;
-fdistrito.onchange = filtrar;
-fmodalidad.onchange = filtrar;
+  actualizar();
+});
 </script>
-
 </body>
 </html>
+
