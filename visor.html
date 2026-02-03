@@ -49,6 +49,7 @@
       font-weight: bold;
       cursor: pointer;
       user-select: none;
+      background: #eef2f7;
     }
     button {
       width: 100%;
@@ -91,7 +92,7 @@
       </button>
     </details>
 
-    <details>
+    <details open>
       <summary>📈 Estadísticas</summary>
       <button data-title="padron iiee padrón instituciones educativas" onclick="cargar('https://app.powerbi.com/view?r=eyJrIjoiNWE2NDRkZGQtODZlYy00NjZmLWFiODktZDg4NmVkYjQwOTE2IiwidCI6ImY5MzgyMjM0LWI1NDMtNDJiYi05MzJkLTYxNjI5ODY1OGVmOCIsImMiOjR9')">
         Padrón de IIEE
@@ -101,7 +102,7 @@
       </button>
     </details>
 
-    <details>
+    <details open>
       <summary>🏫 Programas</summary>
       <button data-title="pp 0150 acceso" onclick="cargar('https://app.powerbi.com/view?r=PEGA_AQUI_5')">
         PP 0150 – Acceso
@@ -111,8 +112,7 @@
       </button>
     </details>
 
-    <!-- ✅ NUEVA CARPETA: MAPAS -->
-    <details>
+    <details open>
       <summary>🗺️ Mapas</summary>
       <button data-title="mapa instituciones educativas lima metropolitana iiee" onclick="cargar('mapa_iiee_lm.html')">
         Mapa de Instituciones Educativas – Lima Metropolitana
@@ -131,7 +131,6 @@
     document.getElementById("visor").src = url;
   }
 
-  // ✅ Buscador que filtra botones
   const inputBuscar = document.getElementById("buscar");
   inputBuscar.addEventListener("input", () => {
     const q = inputBuscar.value.toLowerCase().trim();
@@ -146,6 +145,8 @@
 
 </body>
 </html>
+
+
 
 
 
