@@ -1,368 +1,522 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Mapa IIEE – Lima Metropolitana</title>
 
   <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- MarkerCluster (para 16k puntos sin colgar) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
 
   <style>
-    html, body { height:100%; margin:0; font-family: Arial, sans-serif; }
-    #map { height:100%; width:100%; }
-
-    .panel {
-      position:absolute; z-index:999; top:10px; left:10px;
-      background:#fff; border-radius:12px; padding:12px 12px 10px 12px;
-      box-shadow:0 10px 30px rgba(0,0,0,.18);
-      width:320px; box-sizing:border-box;
+    :root{
+      --azul:#003366;
+      --panel:#ffffff;
+      --borde:#d9d9d9;
+      --sombra: 0 10px 25px rgba(0,0,0,.12);
+      --radio: 14px;
     }
-    .panel h3{ margin:0 0 8px 0; font-size:16px; }
-    .row{ margin-bottom:8px; }
-    label{ display:block; font-size:12px; color:#333; margin:0 0 4px 2px; }
-    input, select, button{
-      width:100%; padding:10px; border-radius:10px;
-      border:1px solid #cfcfcf; box-sizing:border-box;
+    body{ margin:0; font-family: Arial, sans-serif; background:#f5f7fa; }
+    #wrap{ height:100vh; width:100vw; position:relative; }
+
+    /* Mapa ocupa todo */
+    #map{ height:100%; width:100%; }
+
+    /* Panel flotante filtros */
+    .panel{
+      position:absolute;
+      top:14px;
+      left:360px;              /* ojo: tu visor tiene sidebar a la izquierda, por eso lo movemos */
+      width:320px;
+      background:var(--panel);
+      border:1px solid var(--borde);
+      border-radius: var(--radio);
+      box-shadow: var(--sombra);
+      padding:12px 12px 10px;
+      z-index: 1000;
+    }
+    .panel h3{
+      margin:0 0 8px;
+      font-size:16px;
+      font-weight:700;
+    }
+    .row{ display:grid; gap:8px; margin-bottom:8px; }
+    .row-2{ grid-template-columns: 1fr 1fr; }
+    label{ font-size:12px; color:#333; margin-bottom:4px; display:block; }
+    input, select{
+      width:100%;
+      padding:9px 10px;
+      border-radius:10px;
+      border:1px solid #cfcfcf;
+      outline:none;
+      font-size:13px;
+      background:#fff;
+    }
+    input:focus, select:focus{ border-color:#7aa7d6; box-shadow:0 0 0 3px rgba(122,167,214,.22); }
+
+    .btns{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:8px;
+      margin-top:8px;
+    }
+    button{
+      border:1px solid #cfcfcf;
+      background:#fff;
+      padding:9px 10px;
+      border-radius:10px;
+      cursor:pointer;
       font-size:13px;
     }
-    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-    .grid2 .row{ margin:0; }
-    .actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
-    .small{ font-size:12px; color:#555; margin-top:8px; }
-    .count{ font-weight:bold; }
+    button:hover{ background:#eef5ff; border-color:#b8d3f3; }
+    .muted{ font-size:12px; color:#666; margin-top:8px; }
+
+    /* caja sugerencias */
+    .suggest{
+      position:relative;
+    }
+    .listbox{
+      position:absolute;
+      top:62px;
+      left:0;
+      right:0;
+      background:#fff;
+      border:1px solid #cfcfcf;
+      border-radius:12px;
+      box-shadow: var(--sombra);
+      max-height: 240px;
+      overflow:auto;
+      display:none;
+      z-index:2000;
+    }
+    .item{
+      padding:9px 10px;
+      border-bottom:1px solid #f0f0f0;
+      cursor:pointer;
+      font-size:13px;
+    }
+    .item:hover{ background:#f4f9ff; }
+    .item small{ color:#666; display:block; margin-top:2px; }
+
+    /* contador */
+    .count{
+      font-size:12px;
+      color:#444;
+      margin-top:6px;
+    }
   </style>
 </head>
 
 <body>
+<div id="wrap">
   <div id="map"></div>
 
   <div class="panel">
     <h3>Filtros IIEE</h3>
 
-    <div class="row">
-      <label>Buscar IE (nombre)</label>
-      <input id="qNombre" list="listaIE" placeholder="Escribe y elige de la lista...">
-      <datalist id="listaIE"></datalist>
+    <div class="row suggest">
+      <label for="q">Buscar IE (nombre)</label>
+      <input id="q" placeholder="Escribe y elige de la lista…" autocomplete="off" />
+      <div id="listbox" class="listbox"></div>
     </div>
 
     <div class="row">
-      <label>UGEL</label>
-      <select id="fUGEL"></select>
+      <label for="ugel">UGEL</label>
+      <select id="ugel"></select>
     </div>
 
-    <div class="grid2">
-      <div class="row">
-        <label>Distrito</label>
-        <select id="fDistrito"></select>
+    <div class="row row-2">
+      <div>
+        <label for="distrito">Distrito</label>
+        <select id="distrito"></select>
       </div>
-      <div class="row">
-        <label>Modalidad</label>
-        <select id="fModalidad"></select>
+      <div>
+        <label for="modalidad">Modalidad</label>
+        <select id="modalidad"></select>
       </div>
     </div>
 
-    <div class="small">
-      IIEE mostradas: <span class="count" id="nCount">0</span>
-    </div>
+    <div class="count" id="count">IIEE mostradas: 0</div>
 
-    <div class="actions">
-      <button id="btnLimpiar">Limpiar</button>
+    <div class="btns">
+      <button id="btnClear">Limpiar</button>
       <button id="btnZoom">Zoom a filtros</button>
     </div>
+
+    <div class="muted">
+      * Si no carga al instante, refresca (Ctrl+F5) porque GitHub Pages demora en actualizar.
+    </div>
   </div>
+</div>
 
 <script>
-/* =========================
-   0) AJUSTA AQUÍ LOS NOMBRES DE CAMPOS SI TU JSON USA OTROS
-   ========================= */
-// Tu JSON debe tener lat/lon y campos de texto.
-// Si tu JSON tiene otros nombres (ej. "LATITUD", "LONGITUD", "DISTRITO", etc.), mapea aquí:
-const KEYS = {
-  nombre:  ["NOMBRE_IE","NOMBRE","NOM_IE","NOMIIEE","IE","nombre","nombre_ie"],
-  ugel:    ["UGEL","ugel","UGEL_NOMBRE","UGEL_DESC"],
-  distrito:["DISTRITO","distrito","DIST","DIST_DESC"],
-  modalidad:["MODALIDAD","modalidad","MOD","MODAL_DESC"],
-  codmod:  ["COD_MOD","codmod","CODIGO_MODULAR","COD_MODULAR"],
-  lat:     ["LAT","lat","LATITUD","Latitud","Y"],
-  lon:     ["LON","lon","LONGITUD","Longitud","X"]
-};
+/** =============================
+ *  CONFIG
+ *  ============================= */
+const DATA_URL = new URL("iiee_lm.json", window.location.href).toString(); // SIEMPRE correcto en GitHub Pages
+const DEFAULT_CENTER = [-12.0464, -77.0428]; // Lima centro (aprox)
+const DEFAULT_ZOOM = 11;
 
-function pick(obj, candidates){
-  for (const k of candidates){
-    if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== "") return obj[k];
-  }
-  return null;
+/** =============================
+ *  UTILIDADES
+ *  ============================= */
+function norm(s){
+  return (s ?? "")
+    .toString()
+    .trim()
+    .toUpperCase();
+}
+function toNum(x){
+  const v = Number(x);
+  return Number.isFinite(v) ? v : null;
+}
+function uniqueSorted(arr){
+  return Array.from(new Set(arr.filter(Boolean))).sort((a,b)=> a.localeCompare(b));
+}
+function setOptions(select, values, placeholder="Todos"){
+  select.innerHTML = "";
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = placeholder;
+  select.appendChild(opt0);
+
+  values.forEach(v=>{
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = v;
+    select.appendChild(o);
+  });
 }
 
-function normRow(r){
-  const lat = Number(pick(r, KEYS.lat));
-  const lon = Number(pick(r, KEYS.lon));
+/** =============================
+ *  MAPA (Leaflet)
+ *  ============================= */
+const map = L.map("map", {
+  zoomControl: true,
+  attributionControl: false, // para que NO salga la pantalla rara; ponemos atribución simple abajo
+}).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+
+// Base map (OSM / CARTO) - calles actualizadas
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+  maxZoom: 19,
+  subdomains: "abcd"
+}).addTo(map);
+
+// Atribución simple
+L.control.attribution({ position:"bottomright", prefix:false })
+  .addAttribution('© OpenStreetMap | © CARTO')
+  .addTo(map);
+
+// Capa de puntos
+let layerGroup = L.layerGroup().addTo(map);
+let allData = [];      // dataset completo
+let filtered = [];     // dataset filtrado actual
+
+/** =============================
+ *  ELEMENTOS UI
+ *  ============================= */
+const elQ = document.getElementById("q");
+const elList = document.getElementById("listbox");
+const elUGEL = document.getElementById("ugel");
+const elDist = document.getElementById("distrito");
+const elMod  = document.getElementById("modalidad");
+const elCount= document.getElementById("count");
+const btnClear = document.getElementById("btnClear");
+const btnZoom  = document.getElementById("btnZoom");
+
+/** =============================
+ *  MAPEO DE CAMPOS
+ *  (ajusta aquí si tus columnas tienen otro nombre)
+ *  =============================
+ *  Debes tener:
+ *    - latitud, longitud
+ *    - ugel
+ *    - distrito
+ *    - modalidad
+ *    - nombre_ie (o similar)
+ */
+function pickRow(r){
+  // OJO: si tu JSON tiene otros nombres, cámbialos aquí.
+  const lat = toNum(r.latitud ?? r.LATITUD ?? r.lat ?? r.latitude);
+  const lon = toNum(r.longitud ?? r.LONGITUD ?? r.lon ?? r.lng ?? r.longitude);
+
   return {
-    nombre:   String(pick(r, KEYS.nombre) ?? "").trim(),
-    ugel:     String(pick(r, KEYS.ugel) ?? "").trim(),
-    distrito: String(pick(r, KEYS.distrito) ?? "").trim(),
-    modalidad:String(pick(r, KEYS.modalidad) ?? "").trim(),
-    codmod:   String(pick(r, KEYS.codmod) ?? "").trim(),
-    lat, lon
+    raw: r,
+    lat, lon,
+    ugel: (r.ugel ?? r.UGEL ?? r.ugel_nombre ?? r.UGEL_NOMBRE ?? "").toString(),
+    distrito: (r.distrito ?? r.DISTRITO ?? "").toString(),
+    modalidad: (r.modalidad ?? r.MODALIDAD ?? r.d_modalidad ?? "").toString(),
+    nombre: (r.nombre_ie ?? r.NOMBRE_IE ?? r.cen_edu ?? r.CEN_EDU ?? r.nombre ?? r.NOMBRE ?? "").toString(),
+    codigo_mod: (r.cod_mod ?? r.COD_MOD ?? r.codigo_modular ?? r.CODIGO_MODULAR ?? "").toString(),
   };
 }
 
-function isValidCoord(x){ return Number.isFinite(x) && Math.abs(x) > 0.0001; }
+/** =============================
+ *  CARGA DATA
+ *  ============================= */
+(async function init(){
+  try{
+    const resp = await fetch(DATA_URL, { cache: "no-store" });
+    if(!resp.ok) throw new Error("HTTP " + resp.status + " -> " + DATA_URL);
 
-/* =========================
-   1) MAPA BASE (calles más “modernas”)
-   ========================= */
-const map = L.map('map', { preferCanvas: true }).setView([-12.0464, -77.0428], 11);
+    const json = await resp.json();
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap & CARTO',
-  subdomains: 'abcd',
-  maxZoom: 19
-}).addTo(map);
+    // Soporta: lista directa o {data:[...]}
+    const rows = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : null);
+    if(!rows) throw new Error("El JSON no tiene formato esperado (lista o {data:[...]})");
 
-/* =========================
-   2) CAPA DE PUNTOS (con cluster para performance)
-   ========================= */
-const cluster = L.markerClusterGroup({
-  chunkedLoading: true,
-  spiderfyOnMaxZoom: true,
-  showCoverageOnHover: false
-});
-map.addLayer(cluster);
+    // Normaliza y filtra registros con lat/lon válidos
+    allData = rows.map(pickRow).filter(x => x.lat !== null && x.lon !== null);
 
-// Colores por UGEL (si no coincide, usa gris)
-const COLOR_UGEL = {
-  "UGEL 01": "#d32f2f",
-  "UGEL 02": "#7b1fa2",
-  "UGEL 03": "#1976d2",
-  "UGEL 04": "#0097a7",
-  "UGEL 05": "#388e3c",
-  "UGEL 06": "#f57c00",
-  "UGEL 07": "#5d4037"
-};
+    // Poblar filtros
+    const ugelList = uniqueSorted(allData.map(d => d.ugel));
+    setOptions(elUGEL, ugelList, "Todos");
 
-// Marcador tipo “muñequito” (círculo grande en DivIcon, más ligero que imagen)
-function makeIcon(color){
-  return L.divIcon({
-    className: "",
-    html: `<div style="
-      width:16px;height:16px;border-radius:50%;
-      background:${color}; border:2px solid #fff;
-      box-shadow:0 2px 10px rgba(0,0,0,.25);
-    "></div>`,
-    iconSize: [16,16],
-    iconAnchor: [8,8]
-  });
-}
+    // Inicial (dependientes)
+    rebuildDependentFilters();
 
-/* =========================
-   3) UI
-   ========================= */
-const qNombre   = document.getElementById("qNombre");
-const fUGEL     = document.getElementById("fUGEL");
-const fDistrito = document.getElementById("fDistrito");
-const fModalidad= document.getElementById("fModalidad");
-const listaIE   = document.getElementById("listaIE");
-const nCount    = document.getElementById("nCount");
-const btnLimpiar= document.getElementById("btnLimpiar");
-const btnZoom   = document.getElementById("btnZoom");
+    // Pintar
+    applyFilters({ doZoom:true });
 
-function setOptions(select, values, keep="Todos"){
-  const prev = select.value;
-  select.innerHTML = "";
-  const optAll = document.createElement("option");
-  optAll.value = "Todos";
-  optAll.textContent = "Todos";
-  select.appendChild(optAll);
-
-  values.forEach(v=>{
-    const o=document.createElement("option");
-    o.value=v; o.textContent=v;
-    select.appendChild(o);
-  });
-
-  // intenta mantener selección previa si aún existe
-  if ([...select.options].some(o=>o.value===prev)) select.value=prev;
-  else select.value="Todos";
-}
-
-/* =========================
-   4) DATA + FILTROS EN CASCADA
-   ========================= */
-let DATA = [];         // normalizada
-let MARKERS = [];      // {row, marker}
-let lastFiltered = []; // rows filtradas
-
-fetch("iiee_lm.json")
-  .then(r => r.json())
-  .then(raw => {
-    // raw puede ser array o {data:[...]}
-    const arr = Array.isArray(raw) ? raw : (raw.data || raw.features || []);
-    DATA = arr.map(normRow).filter(x =>
-      isValidCoord(x.lat) && isValidCoord(x.lon) && x.nombre
-    );
-
-    // poblar filtros base
-    const ugels = [...new Set(DATA.map(d=>d.ugel).filter(Boolean))].sort();
-    setOptions(fUGEL, ugels);
-
-    // datalist de IE (autocompletar)
-    // (si son muchas, igual funciona; si quieres lo limitamos)
-    const frag = document.createDocumentFragment();
-    DATA.forEach(d=>{
-      const opt=document.createElement("option");
-      opt.value = d.nombre;
-      frag.appendChild(opt);
-    });
-    listaIE.appendChild(frag);
-
-    // construir markers (una sola vez)
-    buildMarkers(DATA);
-
-    // inicializar cascada y pintar
-    refreshCascades();
-    applyFilters();
-  })
-  .catch(err => {
-    alert("No se pudo leer iiee_lm.json. Verifica que el archivo esté en la raíz del repo.");
+    console.log("DATA OK:", allData.length, "registros", "URL:", DATA_URL);
+  }catch(err){
     console.error(err);
-  });
+    alert("No se pudo leer iiee_lm.json.\nRuta usada: " + DATA_URL + "\nDetalle: " + err.message);
+  }
+})();
 
-function buildMarkers(rows){
-  cluster.clearLayers();
-  MARKERS = [];
+/** =============================
+ *  FILTROS DEPENDIENTES
+ *  ============================= */
+function rebuildDependentFilters(){
+  const u = elUGEL.value;
 
-  rows.forEach(d=>{
-    const c = COLOR_UGEL[d.ugel] || "#ff9800";
-    const m = L.marker([d.lat, d.lon], { icon: makeIcon(c) });
+  // base depende de UGEL
+  const base = u ? allData.filter(d => d.ugel === u) : allData;
 
-    const popup = `
-      <b>${escapeHtml(d.nombre)}</b><br>
-      <b>UGEL:</b> ${escapeHtml(d.ugel)}<br>
-      <b>Distrito:</b> ${escapeHtml(d.distrito)}<br>
-      <b>Modalidad:</b> ${escapeHtml(d.modalidad)}<br>
-      ${d.codmod ? `<b>Código modular:</b> ${escapeHtml(d.codmod)}<br>` : ""}
-      <span style="font-size:12px;color:#666">(${d.lat.toFixed(6)}, ${d.lon.toFixed(6)})</span>
-    `;
-    m.bindPopup(popup);
+  // distrito y modalidad SOLO de la base
+  const distList = uniqueSorted(base.map(d => d.distrito));
+  const modList  = uniqueSorted(base.map(d => d.modalidad));
 
-    MARKERS.push({ row:d, marker:m });
-  });
+  // mantener selección previa si aún existe
+  const prevDist = elDist.value;
+  const prevMod  = elMod.value;
 
-  // No se añade todo aquí; applyFilters decide qué se muestra
+  setOptions(elDist, distList, "Todos");
+  setOptions(elMod,  modList,  "Todos");
+
+  if(prevDist && distList.includes(prevDist)) elDist.value = prevDist; else elDist.value = "";
+  if(prevMod  && modList.includes(prevMod))   elMod.value  = prevMod;  else elMod.value  = "";
 }
 
-function refreshCascades(){
-  const ugelSel = fUGEL.value;
+/** =============================
+ *  APLICAR FILTROS Y DIBUJAR
+ *  ============================= */
+function applyFilters({doZoom=false} = {}){
+  const u = elUGEL.value;
+  const d = elDist.value;
+  const m = elMod.value;
 
-  // distritos posibles según UGEL
-  let base = DATA;
-  if (ugelSel !== "Todos") base = base.filter(d => d.ugel === ugelSel);
-
-  const distritos = [...new Set(base.map(d=>d.distrito).filter(Boolean))].sort();
-  setOptions(fDistrito, distritos);
-
-  // modalidades posibles según UGEL + Distrito
-  const distSel = fDistrito.value;
-  let base2 = base;
-  if (distSel !== "Todos") base2 = base2.filter(d => d.distrito === distSel);
-
-  const modalidades = [...new Set(base2.map(d=>d.modalidad).filter(Boolean))].sort();
-  setOptions(fModalidad, modalidades);
-}
-
-function applyFilters(){
-  const q = qNombre.value.trim().toLowerCase();
-  const ugelSel = fUGEL.value;
-  const distSel = fDistrito.value;
-  const modSel  = fModalidad.value;
-
-  // filtrar rows
-  lastFiltered = DATA.filter(d=>{
-    if (ugelSel !== "Todos" && d.ugel !== ugelSel) return false;
-    if (distSel !== "Todos" && d.distrito !== distSel) return false;
-    if (modSel  !== "Todos" && d.modalidad !== modSel) return false;
-    if (q && !d.nombre.toLowerCase().includes(q)) return false;
+  filtered = allData.filter(r=>{
+    if(u && r.ugel !== u) return false;
+    if(d && r.distrito !== d) return false;
+    if(m && r.modalidad !== m) return false;
     return true;
   });
 
-  nCount.textContent = lastFiltered.length.toLocaleString("es-PE");
+  // Si escribió algo y eligió IE exacta (por lista), también filtra por nombre
+  const q = norm(elQ.value);
+  if(q && elQ.dataset.selected === "1"){
+    filtered = filtered.filter(r => norm(r.nombre) === q);
+  }
 
-  // mostrar solo marcadores filtrados
-  cluster.clearLayers();
-  // optimización: solo agrega markers que cumplan
-  const setFiltered = new Set(lastFiltered);
-  MARKERS.forEach(({row, marker})=>{
-    if (setFiltered.has(row)) cluster.addLayer(marker);
+  drawPoints(filtered);
+  elCount.textContent = "IIEE mostradas: " + filtered.length.toLocaleString("es-PE");
+
+  if(doZoom) zoomTo(filtered);
+}
+
+function drawPoints(rows){
+  layerGroup.clearLayers();
+
+  // Puntos más visibles
+  const markerStyle = {
+    radius: 6,          // tamaño (sube a 7/8 si quieres más grande)
+    weight: 1,
+    opacity: 0.95,
+    fillOpacity: 0.75
+  };
+
+  rows.forEach(r=>{
+    // color por UGEL (para distinguir)
+    const color = colorByUGEL(r.ugel);
+
+    const mk = L.circleMarker([r.lat, r.lon], {
+      ...markerStyle,
+      color: "#1f1f1f",
+      fillColor: color
+    });
+
+    const html =
+      `<div style="font-family:Arial;font-size:13px;">
+        <b>${escapeHtml(r.nombre || "Sin nombre")}</b><br/>
+        <span><b>COD MOD:</b> ${escapeHtml(r.codigo_mod || "-")}</span><br/>
+        <span><b>UGEL:</b> ${escapeHtml(r.ugel || "-")}</span><br/>
+        <span><b>Distrito:</b> ${escapeHtml(r.distrito || "-")}</span><br/>
+        <span><b>Modalidad:</b> ${escapeHtml(r.modalidad || "-")}</span>
+      </div>`;
+
+    mk.bindPopup(html, { maxWidth: 360 });
+    mk.addTo(layerGroup);
   });
 }
 
-function zoomToFiltered(){
-  if (!lastFiltered.length) return;
-  const bounds = L.latLngBounds(lastFiltered.map(d => [d.lat, d.lon]));
-  map.fitBounds(bounds.pad(0.15));
+function zoomTo(rows){
+  if(!rows || rows.length === 0){
+    map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+    return;
+  }
+  const latlngs = rows.map(r => [r.lat, r.lon]);
+  const bounds = L.latLngBounds(latlngs);
+  map.fitBounds(bounds, { padding:[30,30] });
 }
 
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
-  }[m]));
+/** =============================
+ *  BÚSQUEDA CON SUGERENCIAS
+ *  ============================= */
+function showSuggestions(items){
+  elList.innerHTML = "";
+  if(items.length === 0){
+    elList.style.display = "none";
+    return;
+  }
+  items.slice(0, 40).forEach(r=>{
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <strong>${escapeHtml(r.nombre || "Sin nombre")}</strong>
+      <small>${escapeHtml(r.ugel || "-")} | ${escapeHtml(r.distrito || "-")} | ${escapeHtml(r.modalidad || "-")}</small>
+    `;
+    div.addEventListener("click", ()=>{
+      elQ.value = r.nombre;
+      elQ.dataset.selected = "1"; // seleccionado de lista
+      elList.style.display = "none";
+
+      // Al elegir IE: ajusta filtros para que concuerden y haga zoom
+      elUGEL.value = r.ugel || "";
+      rebuildDependentFilters();
+      elDist.value = r.distrito || "";
+      elMod.value  = r.modalidad || "";
+
+      applyFilters({ doZoom:true });
+    });
+    elList.appendChild(div);
+  });
+  elList.style.display = "block";
 }
 
-/* =========================
-   5) EVENTOS
-   ========================= */
-fUGEL.addEventListener("change", ()=>{
-  refreshCascades();
-  applyFilters();
+elQ.addEventListener("input", ()=>{
+  elQ.dataset.selected = "0"; // escribe libre, aún no seleccionado
+  const q = norm(elQ.value);
+
+  if(q.length < 3){
+    elList.style.display = "none";
+    // no aplico filtro por nombre aún
+    applyFilters({ doZoom:false });
+    return;
+  }
+
+  // sugerencias dependen de filtros actuales (UGEL/Distr/Mod)
+  const u = elUGEL.value;
+  const d = elDist.value;
+  const m = elMod.value;
+
+  const base = allData.filter(r=>{
+    if(u && r.ugel !== u) return false;
+    if(d && r.distrito !== d) return false;
+    if(m && r.modalidad !== m) return false;
+    return true;
+  });
+
+  const hits = base.filter(r => norm(r.nombre).includes(q));
+  showSuggestions(hits);
 });
 
-fDistrito.addEventListener("change", ()=>{
-  refreshCascades();
-  applyFilters();
-});
-
-fModalidad.addEventListener("change", ()=>{
-  applyFilters();
-});
-
-qNombre.addEventListener("input", ()=>{
-  // si escribe rápido, filtra; si elige una IE exacta, hacemos zoom a esa
-  applyFilters();
-
-  const exact = DATA.find(d => d.nombre.toLowerCase() === qNombre.value.trim().toLowerCase());
-  if (exact){
-    // zoom + popup
-    map.setView([exact.lat, exact.lon], 16);
-    // abrir popup del marker correspondiente
-    const hit = MARKERS.find(x => x.row === exact);
-    if (hit){
-      cluster.zoomToShowLayer(hit.marker, ()=> hit.marker.openPopup());
-    }
+document.addEventListener("click", (e)=>{
+  if(!elList.contains(e.target) && e.target !== elQ){
+    elList.style.display = "none";
   }
 });
 
-btnLimpiar.addEventListener("click", ()=>{
-  qNombre.value = "";
-  fUGEL.value = "Todos";
-  refreshCascades();
-  fDistrito.value = "Todos";
-  fModalidad.value = "Todos";
-  applyFilters();
-  map.setView([-12.0464, -77.0428], 11);
+/** =============================
+ *  EVENTOS FILTROS
+ *  ============================= */
+elUGEL.addEventListener("change", ()=>{
+  // al cambiar UGEL, reconstruye dependientes
+  rebuildDependentFilters();
+  // al cambiar UGEL, la búsqueda ya no es selección fija
+  elQ.dataset.selected = "0";
+  applyFilters({ doZoom:true });
 });
 
-btnZoom.addEventListener("click", zoomToFiltered);
-</script>
+elDist.addEventListener("change", ()=>{
+  elQ.dataset.selected = "0";
+  applyFilters({ doZoom:true });
+});
 
+elMod.addEventListener("change", ()=>{
+  elQ.dataset.selected = "0";
+  applyFilters({ doZoom:true });
+});
+
+btnClear.addEventListener("click", ()=>{
+  elQ.value = "";
+  elQ.dataset.selected = "0";
+  elUGEL.value = "";
+  rebuildDependentFilters();
+  applyFilters({ doZoom:true });
+});
+
+btnZoom.addEventListener("click", ()=>{
+  applyFilters({ doZoom:true });
+});
+
+/** =============================
+ *  COLOR POR UGEL (simple)
+ *  ============================= */
+const ugelPalette = [
+  "#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#17becf","#bcbd22","#8c564b"
+];
+const ugelColorMap = new Map();
+function colorByUGEL(ugel){
+  const key = norm(ugel);
+  if(!ugelColorMap.has(key)){
+    ugelColorMap.set(key, ugelPalette[ugelColorMap.size % ugelPalette.length]);
+  }
+  return ugelColorMap.get(key);
+}
+
+/** =============================
+ *  SEGURIDAD HTML
+ *  ============================= */
+function escapeHtml(s){
+  return (s ?? "").toString()
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+</script>
 </body>
 </html>
-
-
