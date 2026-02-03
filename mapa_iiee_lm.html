@@ -21,11 +21,11 @@
     padding:12px;
     border-radius:12px;
     box-shadow:0 4px 14px rgba(0,0,0,0.20);
-    width:280px;
+    width:300px;
     z-index:10;
   }
   .panel h3 { margin:0 0 10px; font-size:16px; }
-  .panel input, .panel select {
+  .panel input, .panel select, .panel button {
     width:100%;
     padding:8px;
     margin-bottom:8px;
@@ -33,6 +33,11 @@
     border:1px solid #cfcfcf;
     outline:none;
   }
+  .row {
+    display:flex;
+    gap:8px;
+  }
+  .row button { width:50%; cursor:pointer; background:#f4f6f8; }
   .panel small { color:#666; display:block; margin-top:4px; }
 </style>
 </head>
@@ -42,10 +47,17 @@
 
 <div class="panel">
   <h3>Filtros IIEE</h3>
+
   <input id="buscar" placeholder="Buscar IE..." />
   <select id="ugel"></select>
   <select id="distrito"></select>
   <select id="modalidad"></select>
+
+  <div class="row">
+    <button id="btnZoom">Acercar</button>
+    <button id="btnReset">Reset</button>
+  </div>
+
   <small id="contador"></small>
 </div>
 
@@ -56,37 +68,53 @@
   const modSel  = document.getElementById("modalidad");
   const buscar  = document.getElementById("buscar");
   const contador = document.getElementById("contador");
+  const btnZoom = document.getElementById("btnZoom");
+  const btnReset = document.getElementById("btnReset");
 
-  // ✅ importante: mismo folder que el html
   const resp = await fetch("./iiee_lm.json");
   const data0 = await resp.json();
 
-  // Normaliza y filtra solo registros válidos
-  const data = data0
+  // Normaliza
+  const dataAll = data0
     .map(d => ({
       ...d,
       ie: (d.ie ?? "").toString(),
       ugel: (d.ugel ?? "").toString(),
       distrito: (d.distrito ?? "").toString(),
       modalidad: (d.modalidad ?? "").toString(),
+      cod_mod: (d.cod_mod ?? "").toString(),
+      direccion: (d.direccion ?? "").toString(),
       lat: Number(d.lat),
       lon: Number(d.lon)
     }))
     .filter(d => Number.isFinite(d.lat) && Number.isFinite(d.lon) && d.ie.length > 0);
 
-  function setOptions(select, campo) {
-    const vals = [...new Set(data.map(d => d[campo]).filter(v => v && v.trim().length > 0))].sort();
-    select.innerHTML = `<option value="">Todos</option>` + vals.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-  }
-
+  // Helpers
   function escapeHtml(s){
-    return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+    return String(s)
+      .replaceAll("&","&amp;").replaceAll("<","&lt;")
+      .replaceAll(">","&gt;").replaceAll('"',"&quot;");
   }
 
-  setOptions(ugelSel, "ugel");
-  setOptions(distSel, "distrito");
-  setOptions(modSel, "modalidad");
+  function uniqueSorted(arr){
+    return [...new Set(arr.filter(v => v && v.trim().length > 0))].sort();
+  }
 
+  function setOptions(select, values, keepValue=true) {
+    const prev = select.value;
+    select.innerHTML = `<option value="">Todos</option>` +
+      values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+
+    if (keepValue && values.includes(prev)) select.value = prev;
+    else select.value = "";
+  }
+
+  // Inicializa combos con todo
+  setOptions(ugelSel, uniqueSorted(dataAll.map(d=>d.ugel)), false);
+  setOptions(distSel, uniqueSorted(dataAll.map(d=>d.distrito)), false);
+  setOptions(modSel,  uniqueSorted(dataAll.map(d=>d.modalidad)), false);
+
+  // DeckGL
   const deckgl = new deck.DeckGL({
     container: "map",
     mapStyle: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
@@ -104,42 +132,139 @@
     } : null
   });
 
-  function filtrar() {
+  // Estado
+  const INITIAL_VIEW = { longitude: -77.0428, latitude: -12.0464, zoom: 10, pitch: 0, bearing: 0 };
+
+  function filtrarData() {
     const u = ugelSel.value;
     const di = distSel.value;
     const mo = modSel.value;
     const tx = buscar.value.trim().toLowerCase();
 
-    const out = data.filter(d =>
+    return dataAll.filter(d =>
       (!u  || d.ugel === u) &&
       (!di || d.distrito === di) &&
       (!mo || d.modalidad === mo) &&
       (!tx || d.ie.toLowerCase().includes(tx))
     );
+  }
 
+  // ✅ Filtros en cascada: recalcula opciones según lo ya seleccionado + texto
+  function actualizarCascada() {
+    // Base según UGEL + texto (sin distrito/modalidad aún)
+    const u = ugelSel.value;
+    const tx = buscar.value.trim().toLowerCase();
+
+    const base = dataAll.filter(d =>
+      (!u || d.ugel === u) &&
+      (!tx || d.ie.toLowerCase().includes(tx))
+    );
+
+    // Distritos válidos según base (y modalidad actual opcional)
+    const mo = modSel.value;
+    const baseDist = base.filter(d => (!mo || d.modalidad === mo));
+    setOptions(distSel, uniqueSorted(baseDist.map(d=>d.distrito)), true);
+
+    // Modalidades válidas según base (y distrito actual opcional)
+    const di = distSel.value;
+    const baseMod = base.filter(d => (!di || d.distrito === di));
+    setOptions(modSel, uniqueSorted(baseMod.map(d=>d.modalidad)), true);
+  }
+
+  // Zoom a resultados
+  function zoomTo(puntos) {
+    if (!puntos || puntos.length === 0) return;
+
+    if (puntos.length === 1) {
+      const p = puntos[0];
+      deckgl.setProps({
+        viewState: { longitude: p.lon, latitude: p.lat, zoom: 15, pitch: 0, bearing: 0, transitionDuration: 900 }
+      });
+      return;
+    }
+
+    // bounding box
+    let minLon=Infinity, maxLon=-Infinity, minLat=Infinity, maxLat=-Infinity;
+    for (const p of puntos) {
+      if (p.lon < minLon) minLon = p.lon;
+      if (p.lon > maxLon) maxLon = p.lon;
+      if (p.lat < minLat) minLat = p.lat;
+      if (p.lat > maxLat) maxLat = p.lat;
+    }
+
+    // centro + zoom aproximado (simple y robusto)
+    const centerLon = (minLon + maxLon) / 2;
+    const centerLat = (minLat + maxLat) / 2;
+    const span = Math.max(maxLon - minLon, maxLat - minLat);
+
+    // span → zoom (heurística)
+    let zoom = 12;
+    if (span > 1.0) zoom = 9;
+    else if (span > 0.5) zoom = 10;
+    else if (span > 0.2) zoom = 11;
+    else if (span > 0.1) zoom = 12;
+    else if (span > 0.05) zoom = 13;
+    else zoom = 14;
+
+    deckgl.setProps({
+      viewState: { longitude: centerLon, latitude: centerLat, zoom, pitch: 0, bearing: 0, transitionDuration: 900 }
+    });
+  }
+
+  // Dibujo
+  function render(zoom=false) {
+    const out = filtrarData();
     contador.textContent = `IIEE mostradas: ${out.length.toLocaleString("es-PE")}`;
 
+    // ✅ PUNTOS MÁS GRANDES + BORDE
     const layer = new deck.ScatterplotLayer({
       id: "iiee-layer",
       data: out,
       getPosition: d => [d.lon, d.lat],
-      getRadius: 18,
       radiusUnits: "meters",
-      getFillColor: [255, 140, 0, 180],
-      getLineColor: [0, 0, 0, 60],
+      getRadius: 60,                 // <-- más grande (ajustable)
+      radiusMinPixels: 3,            // <-- mínimo visible
+      radiusMaxPixels: 18,           // <-- no se dispare al hacer zoom
+      getFillColor: [255, 120, 0, 200],
+      getLineColor: [0, 0, 0, 120],
       lineWidthMinPixels: 1,
       pickable: true
     });
 
     deckgl.setProps({ layers: [layer] });
+
+    if (zoom) zoomTo(out);
   }
 
-  ugelSel.onchange = filtrar;
-  distSel.onchange = filtrar;
-  modSel.onchange = filtrar;
-  buscar.oninput = filtrar;
+  // Eventos
+  function onChangeGeneral(zoom=false){
+    actualizarCascada();
+    render(zoom);
+  }
 
-  filtrar();
+  ugelSel.onchange = () => onChangeGeneral(true);      // al cambiar UGEL, acercar
+  distSel.onchange = () => onChangeGeneral(true);
+  modSel.onchange  = () => onChangeGeneral(true);
+
+  buscar.oninput = () => onChangeGeneral(false);       // al teclear, no marear con zoom
+  buscar.onchange = () => onChangeGeneral(true);       // al “confirmar” (Enter o perder foco), sí zoom
+
+  btnZoom.onclick = () => render(true);
+  btnReset.onclick = () => {
+    buscar.value = "";
+    ugelSel.value = "";
+    distSel.value = "";
+    modSel.value = "";
+    setOptions(ugelSel, uniqueSorted(dataAll.map(d=>d.ugel)), false);
+    setOptions(distSel, uniqueSorted(dataAll.map(d=>d.distrito)), false);
+    setOptions(modSel,  uniqueSorted(dataAll.map(d=>d.modalidad)), false);
+    deckgl.setProps({ viewState: {...INITIAL_VIEW, transitionDuration: 700 } });
+    render(false);
+  };
+
+  // Inicial
+  actualizarCascada();
+  render(false);
 })();
 </script>
 </body>
