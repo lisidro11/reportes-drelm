@@ -1,272 +1,426 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8" />
-<title>Mapa IIEE – Lima Metropolitana</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mapa de Instituciones Educativas – Lima Metropolitana</title>
 
-<script src="https://cdn.jsdelivr.net/npm/deck.gl@8.9.27/dist.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@deck.gl/layers@8.9.27/dist.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
-<link href="https://cdn.jsdelivr.net/npm/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-<style>
-  body { margin:0; font-family: Arial, sans-serif; }
-  #map { position:absolute; inset:0; }
+  <style>
+    html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
+    #map { height: 100vh; width: 100vw; }
 
-  .panel {
-    position:absolute;
-    top:12px;
-    left:12px;
-    background:white;
-    padding:12px;
-    border-radius:12px;
-    box-shadow:0 4px 14px rgba(0,0,0,0.20);
-    width:300px;
-    z-index:10;
-  }
-  .panel h3 { margin:0 0 10px; font-size:16px; }
-  .panel input, .panel select, .panel button {
-    width:100%;
-    padding:8px;
-    margin-bottom:8px;
-    border-radius:8px;
-    border:1px solid #cfcfcf;
-    outline:none;
-  }
-  .row {
-    display:flex;
-    gap:8px;
-  }
-  .row button { width:50%; cursor:pointer; background:#f4f6f8; }
-  .panel small { color:#666; display:block; margin-top:4px; }
-</style>
+    /* Panel filtros */
+    .panel {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 9999;
+      width: 320px;
+      background: rgba(255,255,255,0.96);
+      border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.15);
+      padding: 12px 12px 10px 12px;
+    }
+    .panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 16px;
+    }
+    .panel label { display:block; font-size: 12px; color: #444; margin-top: 8px; }
+    .panel input, .panel select {
+      width: 100%;
+      margin-top: 6px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid #cfcfcf;
+      outline: none;
+      font-size: 13px;
+      background: #fff;
+      box-sizing: border-box;
+    }
+    .panel .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .panel .meta {
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #555;
+    }
+    .panel .btns {
+      display:flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .panel button {
+      flex:1;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid #cfcfcf;
+      cursor: pointer;
+      background: #f7f7f7;
+      font-size: 13px;
+    }
+    .panel button:hover { background: #eee; }
+
+    /* Sugerencias búsqueda */
+    .suggest {
+      position: relative;
+    }
+    .suggest-list {
+      position: absolute;
+      top: 76px; /* debajo del input */
+      left: 0;
+      right: 0;
+      max-height: 220px;
+      overflow: auto;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      z-index: 10000;
+      display: none;
+    }
+    .suggest-item{
+      padding: 8px 10px;
+      cursor: pointer;
+      border-bottom: 1px solid #f1f1f1;
+      font-size: 13px;
+    }
+    .suggest-item:hover { background: #f3f7ff; }
+    .muted { color:#777; font-size:12px; }
+  </style>
 </head>
-
 <body>
-<div id="map"></div>
 
 <div class="panel">
   <h3>Filtros IIEE</h3>
 
-  <input id="buscar" placeholder="Buscar IE..." />
-  <select id="ugel"></select>
-  <select id="distrito"></select>
-  <select id="modalidad"></select>
-
-  <div class="row">
-    <button id="btnZoom">Acercar</button>
-    <button id="btnReset">Reset</button>
+  <div class="suggest">
+    <input id="q" placeholder="Buscar IE (nombre)..." autocomplete="off"/>
+    <div id="suggest" class="suggest-list"></div>
   </div>
 
-  <small id="contador"></small>
+  <label>UGEL</label>
+  <select id="sel_ugel"></select>
+
+  <div class="row">
+    <div>
+      <label>Distrito</label>
+      <select id="sel_dist"></select>
+    </div>
+    <div>
+      <label>Modalidad</label>
+      <select id="sel_mod"></select>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div>IIEE mostradas: <b id="count">0</b></div>
+    <div class="muted" id="status"></div>
+  </div>
+
+  <div class="btns">
+    <button id="btn_reset">Limpiar</button>
+    <button id="btn_zoom">Zoom a filtros</button>
+  </div>
 </div>
 
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
-(async function () {
-  const ugelSel = document.getElementById("ugel");
-  const distSel = document.getElementById("distrito");
-  const modSel  = document.getElementById("modalidad");
-  const buscar  = document.getElementById("buscar");
-  const contador = document.getElementById("contador");
-  const btnZoom = document.getElementById("btnZoom");
-  const btnReset = document.getElementById("btnReset");
+  // =========================
+  // Config
+  // =========================
+  const DATA_URL = "./iiee_lm.json"; // mismo folder en GitHub Pages
+  const DEFAULT_VIEW = { center: [-12.0464, -77.0428], zoom: 11 }; // Lima
+  const MAX_SUGGEST = 12;
 
-  const resp = await fetch("./iiee_lm.json");
-  const data0 = await resp.json();
-
-  // Normaliza
-  const dataAll = data0
-    .map(d => ({
-      ...d,
-      ie: (d.ie ?? "").toString(),
-      ugel: (d.ugel ?? "").toString(),
-      distrito: (d.distrito ?? "").toString(),
-      modalidad: (d.modalidad ?? "").toString(),
-      cod_mod: (d.cod_mod ?? "").toString(),
-      direccion: (d.direccion ?? "").toString(),
-      lat: Number(d.lat),
-      lon: Number(d.lon)
-    }))
-    .filter(d => Number.isFinite(d.lat) && Number.isFinite(d.lon) && d.ie.length > 0);
-
-  // Helpers
-  function escapeHtml(s){
-    return String(s)
-      .replaceAll("&","&amp;").replaceAll("<","&lt;")
-      .replaceAll(">","&gt;").replaceAll('"',"&quot;");
-  }
-
-  function uniqueSorted(arr){
-    return [...new Set(arr.filter(v => v && v.trim().length > 0))].sort();
-  }
-
-  function setOptions(select, values, keepValue=true) {
-    const prev = select.value;
-    select.innerHTML = `<option value="">Todos</option>` +
-      values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
-
-    if (keepValue && values.includes(prev)) select.value = prev;
-    else select.value = "";
-  }
-
-  // Inicializa combos con todo
-  setOptions(ugelSel, uniqueSorted(dataAll.map(d=>d.ugel)), false);
-  setOptions(distSel, uniqueSorted(dataAll.map(d=>d.distrito)), false);
-  setOptions(modSel,  uniqueSorted(dataAll.map(d=>d.modalidad)), false);
-
-  // DeckGL
-  const deckgl = new deck.DeckGL({
-    container: "map",
-    mapStyle: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-    initialViewState: { longitude: -77.0428, latitude: -12.0464, zoom: 10, pitch: 0, bearing: 0 },
-    controller: true,
-    getTooltip: ({object}) => object ? {
-      html: `
-        <b>${escapeHtml(object.ie)}</b><br>
-        UGEL: ${escapeHtml(object.ugel)}<br>
-        Distrito: ${escapeHtml(object.distrito)}<br>
-        Modalidad: ${escapeHtml(object.modalidad)}<br>
-        ${object.cod_mod ? `CodMod: ${escapeHtml(object.cod_mod)}<br>` : ""}
-        ${object.direccion ? `Dir: ${escapeHtml(object.direccion)}` : ""}
-      `
-    } : null
-  });
-
-  // Estado
-  const INITIAL_VIEW = { longitude: -77.0428, latitude: -12.0464, zoom: 10, pitch: 0, bearing: 0 };
-
-  function filtrarData() {
-    const u = ugelSel.value;
-    const di = distSel.value;
-    const mo = modSel.value;
-    const tx = buscar.value.trim().toLowerCase();
-
-    return dataAll.filter(d =>
-      (!u  || d.ugel === u) &&
-      (!di || d.distrito === di) &&
-      (!mo || d.modalidad === mo) &&
-      (!tx || d.ie.toLowerCase().includes(tx))
-    );
-  }
-
-  // ✅ Filtros en cascada: recalcula opciones según lo ya seleccionado + texto
-  function actualizarCascada() {
-    // Base según UGEL + texto (sin distrito/modalidad aún)
-    const u = ugelSel.value;
-    const tx = buscar.value.trim().toLowerCase();
-
-    const base = dataAll.filter(d =>
-      (!u || d.ugel === u) &&
-      (!tx || d.ie.toLowerCase().includes(tx))
-    );
-
-    // Distritos válidos según base (y modalidad actual opcional)
-    const mo = modSel.value;
-    const baseDist = base.filter(d => (!mo || d.modalidad === mo));
-    setOptions(distSel, uniqueSorted(baseDist.map(d=>d.distrito)), true);
-
-    // Modalidades válidas según base (y distrito actual opcional)
-    const di = distSel.value;
-    const baseMod = base.filter(d => (!di || d.distrito === di));
-    setOptions(modSel, uniqueSorted(baseMod.map(d=>d.modalidad)), true);
-  }
-
-  // Zoom a resultados
-  function zoomTo(puntos) {
-    if (!puntos || puntos.length === 0) return;
-
-    if (puntos.length === 1) {
-      const p = puntos[0];
-      deckgl.setProps({
-        viewState: { longitude: p.lon, latitude: p.lat, zoom: 15, pitch: 0, bearing: 0, transitionDuration: 900 }
-      });
-      return;
-    }
-
-    // bounding box
-    let minLon=Infinity, maxLon=-Infinity, minLat=Infinity, maxLat=-Infinity;
-    for (const p of puntos) {
-      if (p.lon < minLon) minLon = p.lon;
-      if (p.lon > maxLon) maxLon = p.lon;
-      if (p.lat < minLat) minLat = p.lat;
-      if (p.lat > maxLat) maxLat = p.lat;
-    }
-
-    // centro + zoom aproximado (simple y robusto)
-    const centerLon = (minLon + maxLon) / 2;
-    const centerLat = (minLat + maxLat) / 2;
-    const span = Math.max(maxLon - minLon, maxLat - minLat);
-
-    // span → zoom (heurística)
-    let zoom = 12;
-    if (span > 1.0) zoom = 9;
-    else if (span > 0.5) zoom = 10;
-    else if (span > 0.2) zoom = 11;
-    else if (span > 0.1) zoom = 12;
-    else if (span > 0.05) zoom = 13;
-    else zoom = 14;
-
-    deckgl.setProps({
-      viewState: { longitude: centerLon, latitude: centerLat, zoom, pitch: 0, bearing: 0, transitionDuration: 900 }
-    });
-  }
-
-  // Dibujo
-  function render(zoom=false) {
-    const out = filtrarData();
-    contador.textContent = `IIEE mostradas: ${out.length.toLocaleString("es-PE")}`;
-
-    // ✅ PUNTOS MÁS GRANDES + BORDE
-    const layer = new deck.ScatterplotLayer({
-      id: "iiee-layer",
-      data: out,
-      getPosition: d => [d.lon, d.lat],
-      radiusUnits: "meters",
-      getRadius: 60,                 // <-- más grande (ajustable)
-      radiusMinPixels: 3,            // <-- mínimo visible
-      radiusMaxPixels: 18,           // <-- no se dispare al hacer zoom
-      getFillColor: [255, 120, 0, 200],
-      getLineColor: [0, 0, 0, 120],
-      lineWidthMinPixels: 1,
-      pickable: true
-    });
-
-    deckgl.setProps({ layers: [layer] });
-
-    if (zoom) zoomTo(out);
-  }
-
-  // Eventos
-  function onChangeGeneral(zoom=false){
-    actualizarCascada();
-    render(zoom);
-  }
-
-  ugelSel.onchange = () => onChangeGeneral(true);      // al cambiar UGEL, acercar
-  distSel.onchange = () => onChangeGeneral(true);
-  modSel.onchange  = () => onChangeGeneral(true);
-
-  buscar.oninput = () => onChangeGeneral(false);       // al teclear, no marear con zoom
-  buscar.onchange = () => onChangeGeneral(true);       // al “confirmar” (Enter o perder foco), sí zoom
-
-  btnZoom.onclick = () => render(true);
-  btnReset.onclick = () => {
-    buscar.value = "";
-    ugelSel.value = "";
-    distSel.value = "";
-    modSel.value = "";
-    setOptions(ugelSel, uniqueSorted(dataAll.map(d=>d.ugel)), false);
-    setOptions(distSel, uniqueSorted(dataAll.map(d=>d.distrito)), false);
-    setOptions(modSel,  uniqueSorted(dataAll.map(d=>d.modalidad)), false);
-    deckgl.setProps({ viewState: {...INITIAL_VIEW, transitionDuration: 700 } });
-    render(false);
+  // Nombres de campos (de tu PW_LM)
+  const F = {
+    name: "CEN_EDU",
+    ugel: "D_DREUGEL",
+    dist: "D_DIST",
+    mod:  "MODALIDAD",
+    lat:  "NLAT_IE",
+    lon:  "NLONG_IE",
+    cod:  "COD_MOD"
   };
 
-  // Inicial
-  actualizarCascada();
-  render(false);
-})();
+  // =========================
+  // Map init (Canvas para performance)
+  // =========================
+  const map = L.map("map", { preferCanvas: true }).setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
+
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+  }).addTo(map);
+
+  const canvasRenderer = L.canvas({ padding: 0.5 });
+
+  // Capa de puntos
+  let layer = L.layerGroup().addTo(map);
+  let all = [];       // data original
+  let filtered = [];  // data filtrada
+
+  // =========================
+  // UI
+  // =========================
+  const q = document.getElementById("q");
+  const suggest = document.getElementById("suggest");
+  const selU = document.getElementById("sel_ugel");
+  const selD = document.getElementById("sel_dist");
+  const selM = document.getElementById("sel_mod");
+  const count = document.getElementById("count");
+  const status = document.getElementById("status");
+  const btnReset = document.getElementById("btn_reset");
+  const btnZoom = document.getElementById("btn_zoom");
+
+  function esc(s){
+    return (s ?? "").toString()
+      .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  }
+
+  function uniqSorted(arr){
+    return Array.from(new Set(arr.filter(x => x && x.trim()))).sort((a,b)=>a.localeCompare(b));
+  }
+
+  function setOptions(selectEl, values, placeholder="Todos"){
+    const cur = selectEl.value;
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = placeholder;
+    selectEl.appendChild(optAll);
+
+    values.forEach(v=>{
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = v;
+      selectEl.appendChild(o);
+    });
+
+    // intenta mantener selección si sigue existiendo
+    if ([...selectEl.options].some(o=>o.value===cur)) selectEl.value = cur;
+  }
+
+  function boundsOf(data){
+    if (!data.length) return null;
+    const latlngs = data.map(d => [d[F.lat], d[F.lon]]);
+    return L.latLngBounds(latlngs);
+  }
+
+  // =========================
+  // Render puntos
+  // =========================
+  function drawPoints(data){
+    layer.clearLayers();
+
+    // puntos más grandes (ajusta radius)
+    const R = 4.5;
+
+    data.forEach(d=>{
+      const lat = d[F.lat], lon = d[F.lon];
+      if (lat == null || lon == null) return;
+
+      // color por UGEL (hash simple)
+      const u = (d[F.ugel] || "");
+      let h = 0;
+      for (let i=0;i<u.length;i++) h = (h*31 + u.charCodeAt(i)) >>> 0;
+      const hue = h % 360;
+      const color = `hsl(${hue} 75% 45%)`;
+
+      const marker = L.circleMarker([lat, lon], {
+        renderer: canvasRenderer,
+        radius: R,
+        weight: 0.5,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.75
+      });
+
+      const popup = `
+        <b>${esc(d[F.name])}</b><br/>
+        <b>UGEL:</b> ${esc(d[F.ugel])}<br/>
+        <b>Distrito:</b> ${esc(d[F.dist])}<br/>
+        <b>Modalidad:</b> ${esc(d[F.mod])}<br/>
+        <b>Código modular:</b> ${esc(d[F.cod])}
+      `;
+      marker.bindPopup(popup);
+
+      layer.addLayer(marker);
+    });
+
+    count.textContent = data.length.toLocaleString("es-PE");
+  }
+
+  // =========================
+  // Filtro cascada
+  // =========================
+  function applyFilters(zoom=false){
+    const u = selU.value;
+    const d = selD.value;
+    const m = selM.value;
+
+    filtered = all.filter(x=>{
+      const okU = !u || x[F.ugel] === u;
+      const okD = !d || x[F.dist] === d;
+      const okM = !m || x[F.mod]  === m;
+      return okU && okD && okM;
+    });
+
+    drawPoints(filtered);
+
+    if (zoom){
+      const b = boundsOf(filtered);
+      if (b) map.fitBounds(b.pad(0.15));
+    }
+  }
+
+  function refreshCascade(){
+    // con UGEL seleccionada, distritos deben ser solo de esa UGEL
+    const u = selU.value;
+
+    const base = !u ? all : all.filter(x => x[F.ugel] === u);
+
+    const dists = uniqSorted(base.map(x => x[F.dist]));
+    const mods  = uniqSorted(base.map(x => x[F.mod]));
+
+    setOptions(selD, dists, "Todos");
+    setOptions(selM, mods, "Todos");
+  }
+
+  // =========================
+  // Búsqueda (sugerencias) + zoom al seleccionar
+  // =========================
+  function showSuggest(items){
+    if (!items.length){
+      suggest.style.display = "none";
+      suggest.innerHTML = "";
+      return;
+    }
+    suggest.innerHTML = items.map(it => `
+      <div class="suggest-item" data-lat="${it[F.lat]}" data-lon="${it[F.lon]}">
+        ${esc(it[F.name])}<div class="muted">${esc(it[F.ugel])} · ${esc(it[F.dist])}</div>
+      </div>
+    `).join("");
+    suggest.style.display = "block";
+  }
+
+  q.addEventListener("input", ()=>{
+    const term = q.value.trim().toLowerCase();
+    if (term.length < 3){
+      showSuggest([]);
+      return;
+    }
+    // sugiere dentro de lo ya filtrado (si quieres que sea global, cambia filtered por all)
+    const base = filtered.length ? filtered : all;
+    const hits = [];
+    for (const it of base){
+      const name = (it[F.name] || "").toString().toLowerCase();
+      if (name.includes(term)) hits.push(it);
+      if (hits.length >= MAX_SUGGEST) break;
+    }
+    showSuggest(hits);
+  });
+
+  // click sugerencia -> zoom + popup
+  suggest.addEventListener("click", (e)=>{
+    const item = e.target.closest(".suggest-item");
+    if (!item) return;
+    const lat = parseFloat(item.dataset.lat);
+    const lon = parseFloat(item.dataset.lon);
+
+    map.setView([lat, lon], 17);
+
+    // intenta abrir popup del punto más cercano
+    let nearest = null;
+    let best = Infinity;
+    layer.eachLayer(l=>{
+      const ll = l.getLatLng();
+      const dist = map.distance([lat, lon], ll);
+      if (dist < best){
+        best = dist;
+        nearest = l;
+      }
+    });
+    if (nearest) nearest.openPopup();
+
+    showSuggest([]);
+  });
+
+  document.addEventListener("click", (e)=>{
+    if (!e.target.closest(".suggest")) showSuggest([]);
+  });
+
+  // =========================
+  // Events
+  // =========================
+  selU.addEventListener("change", ()=>{
+    refreshCascade();       // actualiza distrito/modalidad según UGEL
+    applyFilters(true);     // aplica filtro y hace zoom
+  });
+
+  selD.addEventListener("change", ()=> applyFilters(true));
+  selM.addEventListener("change", ()=> applyFilters(true));
+
+  btnReset.addEventListener("click", ()=>{
+    q.value = "";
+    selU.value = "";
+    refreshCascade();
+    applyFilters(false);
+    map.setView(DEFAULT_VIEW.center, DEFAULT_VIEW.zoom);
+  });
+
+  btnZoom.addEventListener("click", ()=> applyFilters(true));
+
+  // =========================
+  // Load data
+  // =========================
+  async function load(){
+    status.textContent = "Cargando...";
+    const r = await fetch(DATA_URL, { cache: "no-store" }); // evita cache duro
+    all = await r.json();
+
+    // normaliza strings (por si vienen con espacios)
+    all.forEach(d=>{
+      [F.name, F.ugel, F.dist, F.mod].forEach(k=>{
+        if (d[k] != null) d[k] = d[k].toString().trim();
+      });
+    });
+
+    // llena filtros
+    const ugels = uniqSorted(all.map(x => x[F.ugel]));
+    setOptions(selU, ugels, "Todos");
+
+    refreshCascade();
+
+    filtered = all.slice();
+    drawPoints(filtered);
+
+    const b = boundsOf(all);
+    if (b) map.fitBounds(b.pad(0.08));
+
+    status.textContent = "";
+  }
+
+  load().catch(err=>{
+    console.error(err);
+    status.textContent = "Error cargando datos";
+    alert("Error: no se pudo cargar iiee_lm.json. Revisa que esté en el repo y que la ruta sea correcta.");
+  });
 </script>
+
 </body>
 </html>
+
+
 
