@@ -200,7 +200,7 @@ let DATA = [];         // normalizada
 let MARKERS = [];      // {row, marker}
 let lastFiltered = []; // rows filtradas
 
-fetch("iie_lm.json")
+fetch("iiee_lm.json")
   .then(r => r.json())
   .then(raw => {
     // raw puede ser array o {data:[...]}
@@ -364,3 +364,4 @@ btnZoom.addEventListener("click", zoomToFiltered);
 
 </body>
 </html>
+
